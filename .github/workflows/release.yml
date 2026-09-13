@@ -34,11 +34,18 @@ jobs:
       - name: Checksum
         run: sha256sum qnap-led > qnap-led.sha256
 
-      - name: Create GitHub release
+      - name: Publish release assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            qnap-led qnap-led.sha256 \
-            --title "${{ github.ref_name }}" \
-            --generate-notes
+          TAG="${{ github.ref_name }}"
+          # A release for this tag may already exist if it was drafted from
+          # the GitHub web UI (that creates the tag + release together,
+          # before this job has built anything) — upload/overwrite assets
+          # on it in that case instead of trying to create a duplicate.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" qnap-led qnap-led.sha256 --clobber
+          else
+            gh release create "$TAG" qnap-led qnap-led.sha256 \
+              --title "$TAG" --generate-notes
+          fi
