@@ -25,16 +25,19 @@ A single statically-linked Go binary (`qnap-led`) that:
 ### Quick install (recommended)
 
 One command, run as root on the NAS, does everything: downloads the latest
-release binary (and verifies its checksum), writes a default
-`/etc/qnap-led/config.yaml` **only if one doesn't already exist yet** (safe
-to re-run to upgrade — it never overwrites your config), installs the
-systemd service, and starts it.
+release binary (and verifies its checksum), installs it as a systemd
+service, and starts it.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/arojas90/qnap-led/main/install.sh | sudo bash
 ```
 
-Then edit the config it created and restart:
+No separate config-creation step needed: on first start, qnap-led notices
+there's no `/etc/qnap-led/config.yaml` yet and writes one itself (the same
+annotated defaults as [`cmd/qnap-led/config.example.yaml`](cmd/qnap-led/config.example.yaml),
+embedded in the binary) — it never touches that file again once it exists,
+so upgrades and re-running `install.sh` never clobber your edits. Just edit
+it and restart:
 
 ```bash
 sudo "$EDITOR" /etc/qnap-led/config.yaml   # set pool, mqtt, web, etc.
@@ -67,20 +70,16 @@ chmod +x qnap-led
 # ...or build from source (requires Go 1.21+):
 # CGO_ENABLED=0 go build -o qnap-led ./cmd/qnap-led
 
-# 2. Install binary, config, and service
+# 2. Install binary and service — no config step needed, qnap-led writes
+# its own default /etc/qnap-led/config.yaml on first start (see
+# "Configuration" below).
 sudo cp qnap-led /usr/local/bin/qnap-led
-
-# Config file lives at /etc/qnap-led/config.yaml (the daemon's default
-# --config path). Start from the example and edit it — see "Configuration"
-# below for what goes in it.
-sudo mkdir -p /etc/qnap-led
-sudo cp config.example.yaml /etc/qnap-led/config.yaml
-sudo "$EDITOR" /etc/qnap-led/config.yaml
-
 sudo cp systemd/qnap-led.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now qnap-led.service
-sudo journalctl -u qnap-led -f             # watch it start up
+sudo journalctl -u qnap-led -f              # watch it start up
+sudo "$EDITOR" /etc/qnap-led/config.yaml    # then edit the config it created
+sudo systemctl restart qnap-led
 ```
 
 See [`systemd/qnap-led.service`](systemd/qnap-led.service). The unit runs
@@ -101,8 +100,13 @@ wins over built-in defaults. Neither is required: flags alone work exactly
 as before, and the file alone works fine with the daemon started with no
 flags at all (as the provided systemd unit does).
 
-Start from [`config.example.yaml`](config.example.yaml), which documents
-every field with inline comments. Its shape:
+**You don't create this file yourself.** The first time qnap-led starts and
+finds nothing at that path, it writes one — the same annotated defaults as
+[`cmd/qnap-led/config.example.yaml`](cmd/qnap-led/config.example.yaml),
+embedded in the binary via `go:embed` so the shipped defaults and the
+documented example can never drift apart. It's never overwritten once it
+exists, so editing it is permanent and upgrading the binary later is safe.
+Its shape:
 
 ```yaml
 port: /dev/ttyS1

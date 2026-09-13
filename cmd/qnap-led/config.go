@@ -1,12 +1,24 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+// defaultConfigYAML is config.example.yaml, embedded verbatim so the
+// binary can write it out as a starting point on first run — see
+// loadConfig. Keeping this as the single source (rather than duplicating
+// its contents elsewhere, e.g. in install.sh) means the shipped defaults
+// and the documented example can never drift apart.
+//
+//go:embed config.example.yaml
+var defaultConfigYAML []byte
 
 // Config is the on-disk shape of the optional YAML config file. Every field
 // has a zero-value meaning "disabled"/"use built-in default" — see
@@ -32,28 +44,35 @@ type Config struct {
 	} `yaml:"mqtt"`
 }
 
+// defaultConfig parses the embedded config.example.yaml, so the true
+// built-in defaults (port, baud, pool, ...) and the documented example can
+// never drift apart. Web.Addr and MQTT.* come out zero-valued (disabled)
+// because those sections are commented out in the example — those
+// features depend on external configuration and must only activate when
+// the user actually fills them in, in the config file or via flags.
 func defaultConfig() Config {
 	var c Config
-	c.Port = "/dev/ttyS1"
-	c.Baud = 1200
-	c.Pool = "tank"
-	c.OSDiskDevice = "sdg"
-	c.Refresh = "5s"
-	c.CustomScreensFile = "/etc/qnap-led/custom_screens.json"
-	// Web.Addr and MQTT.* are left zero-valued (disabled) by design: those
-	// features depend on external configuration and must only activate
-	// when the user actually fills them in, in the config file or via flags.
+	if err := yaml.Unmarshal(defaultConfigYAML, &c); err != nil {
+		// Can only happen if config.example.yaml itself is malformed —
+		// a build-time bug, not a runtime/user error.
+		panic(fmt.Sprintf("embedded config.example.yaml is invalid YAML: %v", err))
+	}
 	return c
 }
 
 // loadConfig starts from defaultConfig and, if path exists, overlays values
-// present in the YAML file on top of it. A missing file is not an error —
-// the config file is entirely optional, flags alone still work.
+// present in the YAML file on top of it. If path doesn't exist, it's
+// created from the embedded default so there's something to edit — the
+// daemon still runs fine on the in-memory defaults even if that write
+// fails (e.g. permission denied), since the config file is optional.
 func loadConfig(path string) (Config, error) {
 	cfg := defaultConfig()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			if writeErr := writeDefaultConfig(path); writeErr != nil {
+				log.Printf("warning: could not write default config to %s: %v", path, writeErr)
+			}
 			return cfg, nil
 		}
 		return cfg, fmt.Errorf("reading config file %s: %w", path, err)
@@ -62,6 +81,13 @@ func loadConfig(path string) (Config, error) {
 		return cfg, fmt.Errorf("parsing config file %s: %w", path, err)
 	}
 	return cfg, nil
+}
+
+func writeDefaultConfig(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, defaultConfigYAML, 0o644)
 }
 
 func (c Config) refreshDuration() (time.Duration, error) {

@@ -1,9 +1,13 @@
-# Example configuration for qnap-led.
+# qnap-led configuration.
 #
-# Copy this to /etc/qnap-led/config.yaml (the default --config path) and
-# edit it, or point --config at a copy elsewhere. Every field is optional —
-# anything left out keeps its built-in default, and CLI flags (see
-# `qnap-led --help`) override whatever is set here.
+# This exact file is embedded in the qnap-led binary and written out
+# automatically to /etc/qnap-led/config.yaml (the default --config path)
+# the first time it runs and finds no config there — you don't need to
+# copy it yourself. It's never overwritten once it exists, so it's safe to
+# edit and safe to upgrade the binary later.
+#
+# Every field is optional — anything left out keeps its built-in default,
+# and CLI flags (see `qnap-led --help`) override whatever is set here.
 #
 # IMPORTANT: sections that depend on external configuration (mqtt, web) are
 # disabled by default. They only activate when you actually fill them in —

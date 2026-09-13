@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# install.sh — installs qnap-led end to end:
-#   - downloads the release binary (verifying its checksum)
-#   - writes a default /etc/qnap-led/config.yaml, but ONLY if one doesn't
-#     already exist — safe to re-run to upgrade without losing your config
-#   - installs and enables the systemd service
+# install.sh — installs qnap-led end to end: downloads the release binary
+# (verifying its checksum), installs the systemd service, and starts it.
+# qnap-led writes its own default /etc/qnap-led/config.yaml on first run if
+# one doesn't already exist yet (see cmd/qnap-led/config.go) — this script
+# doesn't need to touch it, and re-running it never overwrites your config.
 #
 # Usage (fetch straight from GitHub, no clone needed):
 #   curl -fsSL https://raw.githubusercontent.com/arojas90/qnap-led/main/install.sh | sudo bash
@@ -55,39 +55,6 @@ systemctl stop qnap-led.service 2>/dev/null || true
 echo "==> Installing binary to $BIN_PATH"
 install -m 0755 "$TMP_DIR/qnap-led" "$BIN_PATH"
 
-echo "==> Ensuring $CONFIG_DIR exists"
-mkdir -p "$CONFIG_DIR"
-
-if [ -e "$CONFIG_PATH" ]; then
-  echo "==> Existing config found at $CONFIG_PATH — leaving it untouched"
-else
-  echo "==> Writing default config to $CONFIG_PATH"
-  cat >"$CONFIG_PATH" <<'CONFIG_EOF'
-# qnap-led configuration.
-# Full annotated reference: https://github.com/arojas90/qnap-led/blob/main/config.example.yaml
-#
-# Sections that depend on external configuration (mqtt, web) are disabled
-# until you fill them in below — an empty/missing value means that feature
-# stays off. After editing, restart the service:
-#   sudo systemctl restart qnap-led
-
-port: /dev/ttyS1
-baud: 1200
-pool: tank
-os_disk_device: sdg
-refresh: 5s
-custom_screens_file: /etc/qnap-led/custom_screens.json
-
-# mqtt:
-#   broker: "tcp://localhost:1883"
-#   username: "qnap-led"
-#   password: "change-me"
-
-# web:
-#   addr: "127.0.0.1:8080"
-CONFIG_EOF
-fi
-
 echo "==> Installing systemd service to $SERVICE_PATH"
 cat >"$SERVICE_PATH" <<'SERVICE_EOF'
 [Unit]
@@ -114,7 +81,7 @@ cat <<EOF
 
 Done.
 
-  Config:  $CONFIG_PATH
+  Config:  $CONFIG_PATH (auto-created on first start, if it didn't already exist)
   Binary:  $BIN_PATH
   Service: qnap-led.service
 

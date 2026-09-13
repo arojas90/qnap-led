@@ -7,7 +7,8 @@ import (
 )
 
 func TestLoadConfigDefaults(t *testing.T) {
-	cfg, err := loadConfig(filepath.Join(t.TempDir(), "does-not-exist.yaml"))
+	path := filepath.Join(t.TempDir(), "does-not-exist.yaml")
+	cfg, err := loadConfig(path)
 	if err != nil {
 		t.Fatalf("missing config file should not error: %v", err)
 	}
@@ -17,6 +18,42 @@ func TestLoadConfigDefaults(t *testing.T) {
 	}
 	if cfg.MQTT.Broker != "" || cfg.Web.Addr != "" {
 		t.Errorf("MQTT/web must be disabled by default, got %+v", cfg)
+	}
+
+	// loadConfig should have written the default config out for next time.
+	written, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("expected loadConfig to auto-create %s: %v", path, err)
+	}
+	if string(written) != string(defaultConfigYAML) {
+		t.Errorf("written config doesn't match embedded default")
+	}
+
+	// A second load should now hit the "file exists" path and leave it as is.
+	cfg2, err := loadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg2 != want {
+		t.Errorf("second load: expected defaults %+v, got %+v", want, cfg2)
+	}
+}
+
+func TestLoadConfigDoesNotOverwriteExisting(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	custom := "pool: keep-me\n"
+	if err := os.WriteFile(path, []byte(custom), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadConfig(path); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != custom {
+		t.Errorf("loadConfig must never overwrite an existing config file; got %q", after)
 	}
 }
 
