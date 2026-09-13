@@ -22,29 +22,52 @@ A single statically-linked Go binary (`qnap-led`) that:
 
 ## Install on the NAS
 
-### 1. Get the binary
+### Quick install (recommended)
 
-**Option A — download the prebuilt release (recommended):** every tag push
-(`vX.Y.Z`) builds a static `linux/amd64` binary via CI and attaches it to a
-[GitHub Release](https://github.com/arojas90/qnap-led/releases). On the NAS:
+One command, run as root on the NAS, does everything: downloads the latest
+release binary (and verifies its checksum), writes a default
+`/etc/qnap-led/config.yaml` **only if one doesn't already exist yet** (safe
+to re-run to upgrade — it never overwrites your config), installs the
+systemd service, and starts it.
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/arojas90/qnap-led/main/install.sh | sudo bash
+```
+
+Then edit the config it created and restart:
+
+```bash
+sudo "$EDITOR" /etc/qnap-led/config.yaml   # set pool, mqtt, web, etc.
+sudo systemctl restart qnap-led
+sudo journalctl -u qnap-led -f             # watch it run
+```
+
+See [`install.sh`](install.sh) — it's a plain shell script, read it before
+piping it into `sudo bash` if you want to know exactly what it does. It
+only touches `/usr/local/bin/qnap-led`, `/etc/qnap-led/`, and
+`/etc/systemd/system/qnap-led.service`.
+
+To pin a specific version instead of the latest release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/arojas90/qnap-led/main/install.sh | sudo QNAP_LED_VERSION=v0.1.0 bash
+```
+
+### Manual install
+
+If you'd rather do each step yourself (or need to build from source):
+
+```bash
+# 1. Get the binary — download the release...
 curl -LO https://github.com/arojas90/qnap-led/releases/latest/download/qnap-led
 curl -LO https://github.com/arojas90/qnap-led/releases/latest/download/qnap-led.sha256
 sha256sum -c qnap-led.sha256
 chmod +x qnap-led
-```
 
-**Option B — build from source** (requires Go 1.21+, produces a single
-static binary with no runtime dependencies):
+# ...or build from source (requires Go 1.21+):
+# CGO_ENABLED=0 go build -o qnap-led ./cmd/qnap-led
 
-```bash
-CGO_ENABLED=0 go build -o qnap-led ./cmd/qnap-led
-```
-
-### 2. Install the binary, config, and service
-
-```bash
+# 2. Install binary, config, and service
 sudo cp qnap-led /usr/local/bin/qnap-led
 
 # Config file lives at /etc/qnap-led/config.yaml (the daemon's default
