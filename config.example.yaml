@@ -1,0 +1,48 @@
+# Example configuration for qnap-led.
+#
+# Copy this to /etc/qnap-led/config.yaml (the default --config path) and
+# edit it, or point --config at a copy elsewhere. Every field is optional —
+# anything left out keeps its built-in default, and CLI flags (see
+# `qnap-led --help`) override whatever is set here.
+#
+# IMPORTANT: sections that depend on external configuration (mqtt, web) are
+# disabled by default. They only activate when you actually fill them in —
+# an empty or missing "broker"/"addr" means that feature stays off.
+
+# Serial device for the front panel.
+port: /dev/ttyS1
+baud: 1200
+
+# ZFS pool to report capacity/health/I-O for.
+pool: tank
+
+# Block device (no /dev/ prefix) to read OS/system disk temperature from.
+os_disk_device: sdg
+
+# How often the current LCD screen refreshes.
+refresh: 5s
+
+# Where screens added through the web UI are persisted.
+custom_screens_file: /etc/qnap-led/custom_screens.json
+
+# --- Home Assistant / MQTT -------------------------------------------------
+# Disabled by default (broker empty). Fill in "broker" to turn it on: the
+# backlight is then exposed to Home Assistant as a switch entity via MQTT
+# Discovery, with no YAML needed on the Home Assistant side.
+#
+# mqtt:
+#   broker: "tcp://localhost:1883"
+#   username: "qnap-led"
+#   password: "change-me"
+
+# --- Custom screens web UI --------------------------------------------------
+# Disabled by default (addr empty). Fill in "addr" to turn it on.
+#
+# SECURITY: adding a screen through this UI means qnap-led will run that
+# shell command on every refresh, typically as root. There is no
+# authentication. Only bind to 127.0.0.1 and reach it over an SSH tunnel
+# (`ssh -L 8080:localhost:8080 nas`) unless you put a reverse proxy with
+# auth in front of it — see README.md before changing this.
+#
+# web:
+#   addr: "127.0.0.1:8080"

@@ -1,0 +1,17 @@
+[Unit]
+Description=QNAP front panel LCD/button daemon
+After=zfs-mount.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Reads /etc/qnap-led/config.yaml by default (see config.example.yaml).
+# CLI flags also work and override the config file, e.g.:
+#   ExecStart=/usr/local/bin/qnap-led --pool tank --mqtt-broker tcp://localhost:1883
+ExecStart=/usr/local/bin/qnap-led
+Restart=on-failure
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
